@@ -14,6 +14,7 @@ static ulong maxProgress = 0;
 static ulong* iterations;
 static ulong* progress;
 static size_t s_threadCount;
+static bool initialized = FALSE;
 
 static pthread_t reportThread;
 static ThreadStatus threadStatus = STATUS_WAIT;
@@ -101,6 +102,8 @@ static void printProgress(bool firstPrint) {
 }
 
 void startProgressReport(ulong max) {
+    if(!initialized)
+        return;
     maxProgress = max;
     clearArray(progress, s_threadCount);
     clearArray(iterations, s_threadCount);
@@ -110,11 +113,15 @@ void startProgressReport(ulong max) {
 }
 
 void stopProgressReport() {
+    if(!initialized)
+        return;
     threadStatus = STATUS_WAIT;
     printProgress(FALSE);
 }
 
 void registerProgress(ulong threadId) {
+    if(!initialized)
+        return;
     iterations[threadId]++;
     progress[threadId]++;
 }
@@ -135,6 +142,9 @@ static void *reportProgress(void *ptr) {
 }
 
 void initProgressReporter(size_t threadCount) {
+    if(initialized)
+        return;
+    initialized = TRUE;
     s_threadCount = threadCount;
     threadStatus = STATUS_WAIT;
     sem_init(&reportSemaphore, 0, 0);
@@ -144,6 +154,8 @@ void initProgressReporter(size_t threadCount) {
 }
 
 void shutdownProgressReporter() {
+    if(!initialized)
+        return;
     threadStatus = STATUS_EXIT;
     sem_post(&reportSemaphore);
     pthread_join(reportThread, NULL);

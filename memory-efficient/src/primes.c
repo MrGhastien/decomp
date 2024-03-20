@@ -78,7 +78,8 @@ static bool fermatTest(PrimeData* data, ulong number) {
 }
 
 static bool isPrime(PrimeData* data, ulong number) {
-    //return fermatTest(data, number);
+    if(number == 2)
+        return TRUE;
     if(!fermatTest(data, number))
       return FALSE;
     ulong p;

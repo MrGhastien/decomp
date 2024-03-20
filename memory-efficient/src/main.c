@@ -42,8 +42,8 @@ ulong streq(const char* a, const char* b) {
 char *replaceExt(const char* path, const char* ext) {
     ulong extLen = strlen(ext);
     ulong pathLen = strlen(path);
-    char* end = path + pathLen;
-    char* dotPos = end;
+    const char* end = path + pathLen;
+    const char* dotPos = end;
     while (dotPos > path && *dotPos != '.' && *dotPos != '\\' && *dotPos != '/') {
         dotPos--;
     }
@@ -92,8 +92,31 @@ int main(int argc, char **argv) {
     if (argc < 2) {
         err(-1, "You must specify a maximum");
     }
+
+
+    const char* primeLiteralPath = "primes.txt";
+    const char* primeBinaryPath = "primes.bin";
     if(streq(argv[1], "test")) {
         return performTests(argv[0]);
+    }
+    if(streq(argv[1], "-s")) {
+        FILE* binaryFile = fopen(primeBinaryPath, "rb");
+        if(!binaryFile) {
+            perror("Could not open prime number cache");
+            return 4;
+        }
+        DecompData data = {
+            .firstNumber = strtoul(argv[2], NULL, 10),
+            .lastNumber = data.firstNumber + 1,
+            .outputFile = stdout,
+            .primeListFile = binaryFile,
+            .tableSize = 1,
+            .threadId = 0,
+        };
+        fread(&data.primeCount, sizeof data.primeCount, 1, binaryFile);
+        decompose(&data);
+        fclose(binaryFile);
+        return 0;
     }
     ulong limit = strtoul(argv[1], NULL, 10);
     ulong threadCount = 1;
@@ -102,9 +125,6 @@ int main(int argc, char **argv) {
         threadCount = strtoul(argv[2], NULL, 10);
     }
     initProgressReporter(threadCount);
-
-    const char* primeLiteralPath = "primes.txt";
-    const char* primeBinaryPath = "primes.bin";
 
     printf("Counting primes, %zu worker threads...\n", threadCount);
     ulong* darrayPrimes = darrayCreate(64, sizeof(ulong));
@@ -118,13 +138,14 @@ int main(int argc, char **argv) {
     for (ulong i = 0; i < primeCount; i++) {
         fprintf(literalFile, "%zu\n", darrayPrimes[i]);
     }
+    fwrite(&primeCount, sizeof primeCount, 1, binaryFile);
     fwrite(darrayPrimes, sizeof(*darrayPrimes), primeCount, binaryFile);
     fclose(literalFile);
     fclose(binaryFile); //We'll reopen this file for each thread during decomposition
     darrayDestroy(darrayPrimes);
 
     printf("Factorizing, %zu worker threads...\n", threadCount);
-    launchDecomposition("./primes.txt", primeCount, limit, "output.txt", threadCount);
+    launchDecomposition("./primes.bin", primeCount, limit, "output.txt", threadCount);
     printf("\n");
 
     shutdownProgressReporter();
